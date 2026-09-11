@@ -7,7 +7,7 @@
 ## 安装
 
 1. 酒馆 → 扩展 → 安装扩展，粘贴下面的地址，点安装。
-2. 刷新一次页面。扩展会通过酒馆自带的「导入主题」流程装好白纸、暖纸两个主题，并切换到白纸版。之后不用再刷新。
+2. 装好后扩展会自动导入白纸、暖纸两个主题，切到白纸版，并自动刷新一次页面。
 
 ```text
 https://github.com/kcgoofee-jpg/sillytavern-sanlian-theme
@@ -32,12 +32,17 @@ https://github.com/kcgoofee-jpg/sillytavern-sanlian-theme
 - MVU 的 `<UpdateVariable>` 变量块
 - 提示词模板的 `<% %>` EJS 代码
 
+## 关闭与删除
+
+在「管理扩展」里关闭或删除本扩展时，会先切回安装前用的主题，并撤掉本扩展注入的排版正则，然后酒馆自动刷新。已导入的两个主题文件保留在主题列表里，不会被删除。
+
 ## 更新
 
 `manifest.json` 里 `auto_update: true`。扩展里主题带版本号 `__sanlian_version`，比已装的新时：
 
 - 写回服务器，下次刷新用新版；
 - 如果你正在用这个主题，新样式立即生效，不用刷新。
+- 主题 CSS 第一行带 `sanlian-theme-version` 版本标记。扩展按页面里实际生效的 CSS 判断新旧，所以同一个酒馆开着多个页面、旧页面把设置写回旧样式时，下次加载也会自动纠正。
 
 正则规则变了会提升 `REGEX_VERSION`，启动时删掉旧版「三联·」正则，再按面板勾选重新注入。
 
@@ -49,8 +54,12 @@ https://github.com/kcgoofee-jpg/sillytavern-sanlian-theme
 
 主题的排版规则只作用于 AI 纯文本（消息内容的直接子元素）。预设、角色卡正则插入的卡片 HTML 一般包在 `<div>` 里，主题不去碰。
 
+## 加载页
+
+主题接管的是加载后半段的样式。酒馆在页面最开始只读服务器上的 `data/_css/user.css`，扩展没有接口写它，所以想让加载页从第一帧起就是杂志风，需要自己把 `splash-user.css` 的内容追加到这个文件里。
+
 ## 开发
 
-主题源文件在上一级目录的 `css/`，`python3 build.py` 和 `python3 build.py --variant warm` 生成两个 JSON。复制成本目录的 `theme.json` / `theme-warm.json` 并把 `__sanlian_version` 加一。
+主题源文件在上一级目录的 `css/`，`python3 build.py` 和 `python3 build.py --variant warm` 生成两个 JSON。再运行 `python3 stamp.py <新版本号>`，它会复制成本目录的 `theme.json` / `theme-warm.json` 并写入版本标记。
 
 刊标 `logo.svg` 是按原版刊标用系统字体重绘的矢量图，仅供个人美化使用。

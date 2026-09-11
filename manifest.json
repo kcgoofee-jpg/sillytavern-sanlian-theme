@@ -6,7 +6,12 @@
     "js": "index.js",
     "css": "style.css",
     "author": "kcgoofee@outlook.com",
-    "version": "0.3.0",
+    "version": "0.3.2",
     "homePage": "https://github.com/kcgoofee-jpg/sillytavern-sanlian-theme",
-    "auto_update": true
+    "auto_update": true,
+    "hooks": {
+        "install": "onInstall",
+        "disable": "onDisable",
+        "delete": "onDelete"
+    }
 }

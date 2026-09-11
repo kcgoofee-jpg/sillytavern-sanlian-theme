@@ -17,7 +17,8 @@
 //   scripts/extensions/regex/engine.js:11-16          正则执行顺序：全局 → 预设 → 角色卡
 
 import { extension_settings, getContext } from '../../../extensions.js';
-import { saveSettingsDebounced, getRequestHeaders } from '../../../../script.js';
+import { saveSettingsDebounced, saveSettings, getRequestHeaders } from '../../../../script.js';
+import { power_user } from '../../../power-user.js';
 
 const KEY = 'sanlian';
 const MODULE_URL = new URL('.', import.meta.url);
@@ -135,6 +136,29 @@ async function saveToServer(theme) {
     if (!res.ok) throw new Error(`/api/themes/save HTTP ${res.status}`);
 }
 
+// 扩展里各主题的最新内容（按主题名缓存）
+const themeCache = {};
+
+// 主题 CSS 第一行写着 /* sanlian-theme-version: N */（stamp.py 生成）。
+// 用它判断页面里实际生效的是哪一版，不只信设置里记的版本号：
+// 同一个酒馆开着多个页面时，旧页面会用内存里的旧主题写回设置，版本号和实际 CSS 就对不上。
+function cssVersion(css) {
+    const m = /sanlian-theme-version:\s*(\d+)/.exec(css || '');
+    return m ? Number(m[1]) : 0;
+}
+
+// 当前主题是本主题、且页面里的 CSS 比扩展里的旧，就换成新的
+function refreshLiveCss(force = false) {
+    const theme = themeCache[currentTheme()];
+    if (!theme) return false;
+    const version = theme.__sanlian_version ?? 0;
+    if (force || cssVersion(power_user.custom_css) < version) {
+        applyLiveCss(theme.custom_css);
+        return true;
+    }
+    return false;
+}
+
 function applyLiveCss(css) {
     // 酒馆应用主题时读的是内存里的旧副本；正在用的主题直接替换 custom_css 即可即时生效
     $('#customCSS').val(css).trigger('input');
@@ -144,23 +168,38 @@ function selectTheme(name) {
     $('#themes').val(name).trigger('change');
 }
 
+function isOurTheme(name) {
+    return Object.values(VARIANTS).some(v => v.name === name);
+}
+
+// 切到本主题前记下原来的主题，关闭 / 删除扩展时切回去
+function applyOurTheme(name) {
+    const s = settings();
+    const cur = currentTheme();
+    if (cur && !isOurTheme(cur)) s.previousTheme = cur;
+    selectTheme(name);
+    // 酒馆切主题读的是页面启动时的旧副本，切完再补一次最新 CSS
+    refreshLiveCss();
+}
+
 async function ensureThemes({ force = false } = {}) {
     const s = settings();
     let newest = s.themeVersion;
     for (const v of Object.values(VARIANTS)) {
         const theme = await fetchJson(v.file);
         const version = theme.__sanlian_version ?? 0;
+        themeCache[theme.name] = theme;
         newest = Math.max(newest, version);
         if (!themeInList(theme.name)) {
             await importViaST(theme);
         } else if (force || s.themeVersion < version) {
             await saveToServer(theme);
-            if (currentTheme() === theme.name) applyLiveCss(theme.custom_css);
         }
     }
     s.themeVersion = newest;
+    refreshLiveCss(force);
     if (!s.firstRunDone) {
-        if (s.autoApply) selectTheme(VARIANTS[s.variant].name);
+        if (s.autoApply) applyOurTheme(VARIANTS[s.variant].name);
         s.firstRunDone = true;
     }
     saveSettingsDebounced();
@@ -279,9 +318,9 @@ function bindPanel(version) {
         const s = settings();
         s.variant = String($(this).val());
         saveSettingsDebounced();
-        selectTheme(VARIANTS[s.variant].name);
+        applyOurTheme(VARIANTS[s.variant].name);
     });
-    $('#sanlian_apply').on('click', () => selectTheme(VARIANTS[settings().variant].name));
+    $('#sanlian_apply').on('click', () => applyOurTheme(VARIANTS[settings().variant].name));
     $('#sanlian_reinstall').on('click', async () => {
         try {
             await ensureThemes({ force: true });
@@ -305,6 +344,9 @@ function bindPanel(version) {
 // ---------------------------------------------------------------------------
 // 启动
 // ---------------------------------------------------------------------------
+let resolveInit;
+const initDone = new Promise(r => { resolveInit = r; });
+
 jQuery(async () => {
     let version = '';
     try {
@@ -316,6 +358,11 @@ jQuery(async () => {
     refreshPanel();
     bindPanel(version);
 
+    // 用户在酒馆自己的主题下拉框里切到本主题时，也补一次最新 CSS
+    $('#themes').on('change', () => setTimeout(() => {
+        if (refreshLiveCss()) saveSettingsDebounced();
+    }, 50));
+
     try {
         await ensureThemes();
         if (syncRegex()) await rerenderChat();
@@ -325,4 +372,49 @@ jQuery(async () => {
         console.error(`[${KEY}] 初始化失败`, err);
         toastr.error(String(err.message || err), '三联生活周刊');
     }
+    resolveInit();
 });
+
+// ---------------------------------------------------------------------------
+// 酒馆扩展钩子（manifest.json hooks → 这里的同名导出函数，extensions.js:406 callExtensionHook）
+//   install：装完酒馆会导入本脚本并调用，此时主题已导入；存盘后刷新一次，让加载页和全部样式按新主题出现
+//   disable / delete：切回安装前的主题，撤掉本扩展注入的正则；酒馆随后自己刷新（extensions.js:490）
+// ---------------------------------------------------------------------------
+function removeOurRegexScripts() {
+    const list = extension_settings.regex;
+    if (!Array.isArray(list)) return;
+    for (let i = list.length - 1; i >= 0; i--) {
+        if (String(list[i]?.scriptName || '').startsWith(REGEX_PREFIX)) list.splice(i, 1);
+    }
+}
+
+async function restoreAndClean() {
+    const s = settings();
+    const cur = currentTheme();
+    if (isOurTheme(cur)) {
+        const options = [...document.querySelectorAll('#themes option')].map(o => o.value);
+        const fallback = [s.previousTheme, 'Default', ...options].find(n => n && !isOurTheme(n) && themeInList(n));
+        if (fallback) selectTheme(fallback);
+    }
+    removeOurRegexScripts();
+    s.firstRunDone = false; // 重新启用时再自动切换一次
+    await saveSettings();
+}
+
+export async function onInstall() {
+    await initDone;
+    await saveSettings();
+    location.reload();
+}
+
+export async function onDisable() {
+    try {
+        await restoreAndClean();
+    } catch (err) {
+        console.error(`[${KEY}] 关闭时清理失败`, err);
+    }
+}
+
+export async function onDelete() {
+    await onDisable();
+}
