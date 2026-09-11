@@ -7,7 +7,7 @@
 ## 安装
 
 1. 酒馆 → 扩展 → 安装扩展，粘贴下面的地址，点安装。
-2. 装好后扩展会自动导入白纸、暖纸两个主题，切到白纸版，并自动刷新一次页面。
+2. 装好后扩展会自动导入白纸、暖纸、护眼、夜读四个主题，切到白纸版，并自动刷新一次页面。
 
 ```text
 https://github.com/kcgoofee-jpg/sillytavern-sanlian-theme
@@ -19,7 +19,8 @@ https://github.com/kcgoofee-jpg/sillytavern-sanlian-theme
 
 | 项 | 作用 |
 |---|---|
-| 主题 | 白纸 / 暖纸，选了立即切换 |
+| 纸色 | 白纸 / 暖纸 / 护眼（豆沙绿）/ 夜读（黑暗），选了立即切换 |
+| 夜读跟随系统 | 勾选后，电脑或手机处于深色模式时自动用夜读，切回浅色模式后回到所选纸色；只在正用着本主题时切换，切到别的主题后不打扰；默认关闭 |
 | 正文字体 | 思源宋体（默认）/ 霞鹜文楷屏幕版 / 思源黑体 / 系统宋体 / 系统黑体，选了立即切换 |
 | 应用所选主题 | 你切到别的主题后，一键切回 |
 | 重新安装主题文件 | 主题被改乱时，按扩展里的版本覆盖回去 |
@@ -45,9 +46,11 @@ https://github.com/kcgoofee-jpg/sillytavern-sanlian-theme
 
 三款字体均为 SIL OFL 1.1 许可，许可证在各自的 `fonts/` 子目录里。字体文件和酒馆同源加载，不走 jsDelivr 等外部 CDN。每款按 unicode-range 切成约 100 片，浏览器只下载页面上出现的字所在的片，一屏中文通常十几片；没选中的字体完全不下载。电脑里已经装了同名字体时直接用本机的。
 
+英文字母用 Helvetica Neue / Arial（黑体处）和 Times（楷体、仿宋处），中文照旧用中文字体。
+
 ## 关闭与删除
 
-在「管理扩展」里关闭或删除本扩展时，会先切回安装前用的主题，并撤掉本扩展注入的排版正则，然后酒馆自动刷新。已导入的两个主题文件保留在主题列表里，不会被删除。
+在「管理扩展」里关闭或删除本扩展时，会先切回安装前用的主题，并撤掉本扩展注入的排版正则，然后酒馆自动刷新。已导入的主题文件保留在主题列表里，不会被删除。
 
 ## 更新
 
@@ -73,6 +76,8 @@ https://github.com/kcgoofee-jpg/sillytavern-sanlian-theme
 
 ## 开发
 
-主题源文件在上一级目录的 `css/`，`python3 build.py` 和 `python3 build.py --variant warm` 生成两个 JSON。再运行 `python3 stamp.py <新版本号>`，它会复制成本目录的 `theme.json` / `theme-warm.json` 并写入版本标记。
+主题源文件在上一级目录的 `css/`，`python3 build.py --variant all` 生成四个 JSON；`python3 build.py --variant default|warm|eye|night` 只生成其中一个。再运行 `python3 stamp.py <新版本号>`，它会把四个文件复制成本目录的 `theme.json` / `theme-warm.json` / `theme-eye.json` / `theme-night.json` 并写入版本标记。
+
+纸色只换颜色 token（`--paper`、`--ink` 等），版式不变；新写的样式要读 token，不要写死颜色，墨色底上的字用 `var(--on-ink)`。
 
 刊标 `logo.svg` 是按原版刊标用系统字体重绘的矢量图，仅供个人美化使用。

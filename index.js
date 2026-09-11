@@ -1,7 +1,8 @@
 // 三联生活周刊 · SillyTavern 1.18 第三方扩展
 //
 // 做三件事，全部可在「扩展 → 三联生活周刊」面板里控制：
-//   1. 安装主题：白纸版 theme.json、暖纸版 theme-warm.json。
+//   1. 安装主题：四种纸色——白纸 theme.json、暖纸 theme-warm.json、护眼 theme-eye.json、夜读 theme-night.json；
+//      可勾选「夜读跟随系统」：系统深色模式时自动用夜读，浅色时回到所选纸色。
 //      走酒馆自带的「导入主题」流程（#ui_preset_import_file），主题会直接进入酒馆的内存主题列表，
 //      不需要刷新页面。旧做法是 POST /api/themes/save 再发 /theme 命令，但酒馆的主题列表只在页面启动时
 //      从服务器读一次（power-user.js:1605），新主题不在内存里，/theme 找不到，只能反复刷新。
@@ -27,6 +28,8 @@ const MODULE_URL = new URL('.', import.meta.url);
 const VARIANTS = {
     white: { name: '三联生活周刊', file: 'theme.json', label: '白纸' },
     warm: { name: '三联生活周刊·暖纸', file: 'theme-warm.json', label: '暖纸' },
+    eye: { name: '三联生活周刊·护眼', file: 'theme-eye.json', label: '护眼（豆沙绿）' },
+    night: { name: '三联生活周刊·夜读', file: 'theme-night.json', label: '夜读（黑暗）' },
 };
 
 // 正文字体。主题正文用 --song；这里用 html body 覆盖它（比主题里的 body 优先级高，不受样式先后顺序影响）。
@@ -92,6 +95,7 @@ const DEFAULTS = {
     variant: 'white',
     font: 'noto',
     autoApply: true,
+    followSystemDark: false,
     regex: { quote: false, dash: false, indent: false },
     themeVersion: -1,
     regexVersion: 0,
@@ -206,6 +210,21 @@ function applyOurTheme(name) {
     refreshLiveCss();
 }
 
+// 夜读跟随系统：勾选后，电脑 / 手机处于深色模式时用夜读，浅色模式时用面板里选的纸色
+const darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+
+function targetVariant() {
+    const s = settings();
+    return s.followSystemDark && darkQuery?.matches ? 'night' : s.variant;
+}
+
+// 只在当前正用着本主题时才自动切换；用户切到别的主题后不打扰
+function applySystemMode() {
+    if (!settings().followSystemDark || !isOurTheme(currentTheme())) return;
+    const name = VARIANTS[targetVariant()].name;
+    if (currentTheme() !== name) applyOurTheme(name);
+}
+
 async function ensureThemes({ force = false } = {}) {
     const s = settings();
     let newest = s.themeVersion;
@@ -223,7 +242,7 @@ async function ensureThemes({ force = false } = {}) {
     s.themeVersion = newest;
     refreshLiveCss(force);
     if (!s.firstRunDone) {
-        if (s.autoApply) applyOurTheme(VARIANTS[s.variant].name);
+        if (s.autoApply) applyOurTheme(VARIANTS[targetVariant()].name);
         s.firstRunDone = true;
     }
     saveSettingsDebounced();
@@ -329,7 +348,7 @@ function panelHtml(version) {
     <div class="inline-drawer-content">
       <div class="sanlian-body">
       <div class="sanlian-row">
-        <label for="sanlian_variant">主题</label>
+        <label for="sanlian_variant">纸色</label>
         <select id="sanlian_variant" class="text_pole">${variantOptions}</select>
       </div>
       <div class="sanlian-row">
@@ -340,6 +359,7 @@ function panelHtml(version) {
         <div id="sanlian_apply" class="menu_button">应用所选主题</div>
         <div id="sanlian_reinstall" class="menu_button">重新安装主题文件</div>
       </div>
+      <label class="checkbox_label"><input type="checkbox" id="sanlian_followdark"><span>夜读跟随系统（系统深色模式时自动用夜读）</span></label>
       <label class="checkbox_label"><input type="checkbox" id="sanlian_autoapply"><span>首次安装时自动切换到本主题</span></label>
       <hr>
       <b>排版正则</b>
@@ -357,6 +377,7 @@ function refreshPanel() {
     $('#sanlian_variant').val(s.variant);
     $('#sanlian_font').val(s.font);
     $('#sanlian_autoapply').prop('checked', s.autoApply);
+    $('#sanlian_followdark').prop('checked', s.followSystemDark);
     for (const key of Object.keys(REGEX_DEFS)) {
         $(`[data-sanlian-regex="${key}"]`).prop('checked', !!s.regex[key]);
     }
@@ -371,14 +392,22 @@ function bindPanel(version) {
         const s = settings();
         s.variant = String($(this).val());
         saveSettingsDebounced();
-        applyOurTheme(VARIANTS[s.variant].name);
+        if (targetVariant() !== s.variant) {
+            toastr.info('系统正处于深色模式，先用夜读；切回浅色模式后换成所选纸色', '三联生活周刊');
+        }
+        applyOurTheme(VARIANTS[targetVariant()].name);
     });
     $('#sanlian_font').on('change', function () {
         settings().font = String($(this).val());
         saveSettingsDebounced();
         applyFont();
     });
-    $('#sanlian_apply').on('click', () => applyOurTheme(VARIANTS[settings().variant].name));
+    $('#sanlian_apply').on('click', () => applyOurTheme(VARIANTS[targetVariant()].name));
+    $('#sanlian_followdark').on('change', function () {
+        settings().followSystemDark = $(this).prop('checked');
+        saveSettingsDebounced();
+        if (isOurTheme(currentTheme())) applyOurTheme(VARIANTS[targetVariant()].name);
+    });
     $('#sanlian_reinstall').on('click', async () => {
         try {
             await ensureThemes({ force: true });
@@ -424,6 +453,8 @@ jQuery(async () => {
 
     try {
         await ensureThemes();
+        applySystemMode();
+        darkQuery?.addEventListener('change', applySystemMode);
         if (syncRegex()) await rerenderChat();
         refreshPanel();
         setStatus(`扩展 ${version} · 主题版本 ${settings().themeVersion}`);
