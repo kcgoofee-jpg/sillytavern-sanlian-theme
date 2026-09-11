@@ -7,7 +7,8 @@
 //      从服务器读一次（power-user.js:1605），新主题不在内存里，/theme 找不到，只能反复刷新。
 //   2. 主题更新：已安装的主题落后于扩展里的版本时，写回服务器；如果正在使用，就把新 custom_css
 //      通过 #customCSS 的 input 事件（power-user.js:3345）即时应用，同样不用刷新。
-//   3. 排版正则（可选，默认关闭）：只改聊天显示（markdownOnly），不改聊天文件和发给模型的内容。
+//   3. 正文字体：默认思源宋体（随扩展分发），可换回系统宋体或改用黑体。
+//   4. 排版正则（可选，默认关闭）：只改聊天显示（markdownOnly），不改聊天文件和发给模型的内容。
 //      会跳过 ``` 代码块、HTML 标签内部、MVU 的 <UpdateVariable> 块，避免改坏前端卡和变量。
 //
 // 源码依据（相对 SillyTavern/public/）：
@@ -26,6 +27,18 @@ const MODULE_URL = new URL('.', import.meta.url);
 const VARIANTS = {
     white: { name: '三联生活周刊', file: 'theme.json', label: '白纸' },
     warm: { name: '三联生活周刊·暖纸', file: 'theme-warm.json', label: '暖纸' },
+};
+
+// 正文字体。主题正文用 --song；这里用 html body 覆盖它（比主题里的 body 优先级高，不受样式先后顺序影响）。
+// 思源宋体随扩展一起分发（fonts/），和酒馆同源加载，不依赖 jsDelivr 等外部 CDN。
+const FONTS = {
+    noto: {
+        label: '思源宋体（推荐，屏幕上更清晰）',
+        css: 'fonts/noto-serif-sc.css',
+        song: "'Sanlian Serif', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif",
+    },
+    system: { label: '系统宋体（印刷感，笔画偏细）' },
+    hei: { label: '系统黑体（最清晰，杂志感最弱）', song: 'var(--hei)' },
 };
 
 // ---------------------------------------------------------------------------
@@ -67,6 +80,7 @@ const REGEX_PLACEMENT_AI_OUTPUT = 2; // scripts/extensions/regex/engine.js regex
 
 const DEFAULTS = {
     variant: 'white',
+    font: 'noto',
     autoApply: true,
     regex: { quote: false, dash: false, indent: false },
     themeVersion: -1,
@@ -206,6 +220,28 @@ async function ensureThemes({ force = false } = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// 字体
+// ---------------------------------------------------------------------------
+function applyFont() {
+    const font = FONTS[settings().font] || FONTS.noto;
+    document.getElementById('sanlian-font-css')?.remove();
+    document.getElementById('sanlian-font-var')?.remove();
+    if (font.css) {
+        const link = document.createElement('link');
+        link.id = 'sanlian-font-css';
+        link.rel = 'stylesheet';
+        link.href = new URL(font.css, MODULE_URL).href;
+        document.head.append(link);
+    }
+    if (font.song) {
+        const style = document.createElement('style');
+        style.id = 'sanlian-font-var';
+        style.textContent = `html body { --song: ${font.song}; }`;
+        document.head.append(style);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // 正则
 // ---------------------------------------------------------------------------
 function buildRegex(def) {
@@ -269,6 +305,8 @@ async function rerenderChat() {
 function panelHtml(version) {
     const variantOptions = Object.entries(VARIANTS)
         .map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+    const fontOptions = Object.entries(FONTS)
+        .map(([k, f]) => `<option value="${k}">${f.label}</option>`).join('');
     const regexRows = Object.entries(REGEX_DEFS)
         .map(([k, d]) => `<label class="checkbox_label"><input type="checkbox" data-sanlian-regex="${k}"><span>${d.label}</span></label>`).join('');
     return `
@@ -283,6 +321,10 @@ function panelHtml(version) {
       <div class="sanlian-row">
         <label for="sanlian_variant">主题</label>
         <select id="sanlian_variant" class="text_pole">${variantOptions}</select>
+      </div>
+      <div class="sanlian-row">
+        <label for="sanlian_font">正文字体</label>
+        <select id="sanlian_font" class="text_pole">${fontOptions}</select>
       </div>
       <div class="sanlian-row">
         <div id="sanlian_apply" class="menu_button">应用所选主题</div>
@@ -303,6 +345,7 @@ function panelHtml(version) {
 function refreshPanel() {
     const s = settings();
     $('#sanlian_variant').val(s.variant);
+    $('#sanlian_font').val(s.font);
     $('#sanlian_autoapply').prop('checked', s.autoApply);
     for (const key of Object.keys(REGEX_DEFS)) {
         $(`[data-sanlian-regex="${key}"]`).prop('checked', !!s.regex[key]);
@@ -319,6 +362,11 @@ function bindPanel(version) {
         s.variant = String($(this).val());
         saveSettingsDebounced();
         applyOurTheme(VARIANTS[s.variant].name);
+    });
+    $('#sanlian_font').on('change', function () {
+        settings().font = String($(this).val());
+        saveSettingsDebounced();
+        applyFont();
     });
     $('#sanlian_apply').on('click', () => applyOurTheme(VARIANTS[settings().variant].name));
     $('#sanlian_reinstall').on('click', async () => {
@@ -354,6 +402,7 @@ jQuery(async () => {
     } catch { /* 版本号只用于显示 */ }
 
     const host = $('#extensions_settings2').length ? $('#extensions_settings2') : $('#extensions_settings');
+    applyFont();
     host.append(panelHtml(version));
     refreshPanel();
     bindPanel(version);
