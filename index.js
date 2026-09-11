@@ -8,7 +8,7 @@
 //      从服务器读一次（power-user.js:1605），新主题不在内存里，/theme 找不到，只能反复刷新。
 //   2. 主题更新：已安装的主题落后于扩展里的版本时，写回服务器；如果正在使用，就把新 custom_css
 //      通过 #customCSS 的 input 事件（power-user.js:3345）即时应用，同样不用刷新。
-//   3. 正文字体：默认思源宋体；另有霞鹜文楷屏幕版、思源黑体（均随扩展分发），以及不下载的系统宋体、系统黑体。
+//   3. 正文字体：默认思源黑体；另有思源宋体、霞鹜文楷屏幕版（均随扩展分发），以及不下载的系统宋体、系统黑体。
 //   4. 排版正则（可选，默认关闭）：只改聊天显示（markdownOnly），不改聊天文件和发给模型的内容。
 //      会跳过 ``` 代码块、HTML 标签内部、MVU 的 <UpdateVariable> 块，避免改坏前端卡和变量。
 //
@@ -36,7 +36,7 @@ const VARIANTS = {
 // 字体文件随扩展一起分发（fonts/），和酒馆同源加载，不依赖 jsDelivr 等外部 CDN。
 const FONTS = {
     noto: {
-        label: '思源宋体（推荐，屏幕上更清晰）',
+        label: '思源宋体（杂志感，比系统宋体清晰）',
         css: 'fonts/noto-serif-sc.css',
         song: "'Sanlian Serif', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif",
     },
@@ -46,7 +46,7 @@ const FONTS = {
         song: "'Sanlian Kai', 'LXGW WenKai GB Screen', 'LXGW WenKai Screen', 'Kaiti SC', 'STKaiti', 'KaiTi', serif",
     },
     notosans: {
-        label: '思源黑体（最清晰）',
+        label: '思源黑体（默认，最清晰）',
         css: 'fonts/noto-sans-sc.css',
         song: "'Sanlian Sans', 'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif",
     },
@@ -92,8 +92,8 @@ const REGEX_DEFS = {
 const REGEX_PLACEMENT_AI_OUTPUT = 2; // scripts/extensions/regex/engine.js regex_placement.AI_OUTPUT
 
 const DEFAULTS = {
-    variant: 'white',
-    font: 'noto',
+    variant: 'night', // 新装默认：夜读 + 思源黑体（已装过的用户保留自己的选择）
+    font: 'notosans',
     autoApply: true,
     followSystemDark: false,
     regex: { quote: false, dash: false, indent: false },
@@ -252,7 +252,7 @@ async function ensureThemes({ force = false } = {}) {
 // 字体
 // ---------------------------------------------------------------------------
 function applyFont() {
-    const font = FONTS[settings().font] || FONTS.noto;
+    const font = FONTS[settings().font] || FONTS[DEFAULTS.font];
     document.getElementById('sanlian-font-css')?.remove();
     document.getElementById('sanlian-font-var')?.remove();
     if (font.css) {
