@@ -16,6 +16,10 @@
 
 `manifest.json` 中 `auto_update: true`：ST 会在扩展面板检测新版本并允许一键更新（走 ST 内置的第三方扩展 git pull 逻辑，见 `scripts/extensions.js` 里 `1352行` 附近 `updateExtension`）。**主题内容的更新**由本扩展自己控制版本号：`theme.json` 里放一个非标准字段 `__sanlian_version`（整数），扩展会把已安装版本记在 `extension_settings.sanlian.version`；每次启动比较两者，版本号更高才重新保存并应用主题，避免每次刷新都覆盖用户在 ST 里对同名主题做的手动微调。当前 `theme.json` 的 `__sanlian_version` 为 1。
 
+## 暖纸变体
+
+仓库里另有 `theme-warm.json`（主题名「三联生活周刊·暖纸」，米色纸 #f6f1e6）。扩展只自动安装白纸版；要用暖纸版，在 用户设置 → UI 主题 → 导入 里选这个文件即可。
+
 ## 如何生成/更新 theme.json
 
 本目录下的 `theme.json`是直接复制的：
