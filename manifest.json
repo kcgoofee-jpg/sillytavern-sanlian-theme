@@ -4,9 +4,9 @@
     "requires": [],
     "optional": [],
     "js": "index.js",
-    "css": "",
+    "css": "style.css",
     "author": "kcgoofee@outlook.com",
-    "version": "0.2.2",
+    "version": "0.3.0",
     "homePage": "https://github.com/kcgoofee-jpg/sillytavern-sanlian-theme",
     "auto_update": true
 }
