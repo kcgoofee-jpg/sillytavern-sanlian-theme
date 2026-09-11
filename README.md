@@ -14,7 +14,7 @@
 
 ## 自动更新
 
-`manifest.json` 中 `auto_update: true`：ST 会在扩展面板检测新版本并允许一键更新（走 ST 内置的第三方扩展 git pull 逻辑，见 `scripts/extensions.js` 里 `1352行` 附近 `updateExtension`）。**主题内容的更新**由本扩展自己控制版本号：`theme.json` 里放一个非标准字段 `__sanlian_version`（整数），扩展会把已安装版本记在 `extension_settings.sanlian.version`；每次启动比较两者，版本号更高才重新保存并应用主题，避免每次刷新都覆盖用户在 ST 里对同名主题做的手动微调。**当前 `theme.json` 未设置 `__sanlian_version`（视为版本 0）——如需触发用户侧更新，请在改动主题后把该字段递增。**
+`manifest.json` 中 `auto_update: true`：ST 会在扩展面板检测新版本并允许一键更新（走 ST 内置的第三方扩展 git pull 逻辑，见 `scripts/extensions.js` 里 `1352行` 附近 `updateExtension`）。**主题内容的更新**由本扩展自己控制版本号：`theme.json` 里放一个非标准字段 `__sanlian_version`（整数），扩展会把已安装版本记在 `extension_settings.sanlian.version`；每次启动比较两者，版本号更高才重新保存并应用主题，避免每次刷新都覆盖用户在 ST 里对同名主题做的手动微调。当前 `theme.json` 的 `__sanlian_version` 为 1。
 
 ## 如何生成/更新 theme.json
 
@@ -26,26 +26,39 @@ cp "../三联生活周刊.json" theme.json
 
 即仓库根目录 `sanlian/三联生活周刊.json` 的原样拷贝，字段结构已用 SillyTavern 1.18 的 `getThemeObject()` 导出格式核对过（`name`、`main_text_color`、`custom_css` 等键位一致，见 `scripts/power-user.js:2535`）。以后主题有修改，重新执行这条 `cp` 覆盖本文件即可；记得同时给 `__sanlian_version` +1（见上一节），否则已安装过的用户不会收到主题更新。
 
-## 三条正则脚本（占位，作者需替换实际规则）
+## 三条正则脚本
 
-全部 `markdownOnly: true`（只影响聊天区域显示，不改写模型收到/生成的原文）、`promptOnly: false`、`placement: [AI_OUTPUT]`（只作用于 AI 消息，不处理用户输入）。当前占位规则：
+全部 `markdownOnly: true`（只影响聊天区域显示，不改写模型收到/生成的原文）、`promptOnly: false`、`placement: [AI_OUTPUT]`（只作用于 AI 消息）。
 
-| scriptName | findRegex（占位） | replaceString（占位） | 说明 |
+| scriptName | findRegex | replaceString | 说明 |
 |---|---|---|---|
-| 三联·引号 | `/"([^"]*)"/g` | `「$1」` | 英文直引号 → 中文书名号式引号，未处理引号嵌套/转义 |
-| 三联·破折号 | `/--/g` | `——` | 双连字符 → 破折号 |
-| 三联·段首缩进 | `/^(?=\S)/gm` | 两个全角空格 | 给每个非空行行首加缩进，未排除代码块/引用块 |
+| 三联·引号 | `/"([^"\n]{1,200})"/g` | `「$1」` | 英文直引号 → 「」，单行内、不超过 200 字 |
+| 三联·破折号 | `/(?<!-)--(?!-)/g` | `——` | 恰好两个连字符 → 破折号 |
+| 三联·段首缩进 | `/^(?=[一-鿿「『])/gm` | 两个全角空格 | 只给以汉字或引号开头的行加缩进，标题、列表、表格、代码不受影响 |
 
-这三条规则是**占位符**，需要按实际排版需求替换 `index.js` 里 `REGEX_SCRIPTS` 数组的 `findRegex`/`replaceString`。
+要改规则就改 `index.js` 里的 `REGEX_SCRIPTS`，再把 `theme.json` 的 `__sanlian_version` +1。
 
-## 已知限制 / 未查证项（20 分钟预算内未继续深挖，不要重试，按需人工核实）
+## 已在本地 ST 1.18 实机验证（2026-09-11）
 
-- **`applyTheme()` / `saveTheme()` 在 `scripts/power-user.js` 中均未 `export`**，本扩展改用 `context.executeSlashCommandsWithOptions('/theme <name>')` 触发应用（该斜杠命令内部逻辑与 UI 下拉框 `change` 事件一致，见 `scripts/power-user.js:3508`），未在真实 ST 1.18 实例里做端到端验证（受时间预算限制），理论上应可行，请安装后实测确认 toastr 与主题下拉框选中状态。
+- 通过 ST 自己的 `POST /api/extensions/install` 从 git URL 安装成功（`git clone --depth 1`，需要智能 HTTP，GitHub 天然满足）
+- 刷新后扩展加载，主题写入 `themes/三联生活周刊.json` 并被选中，`extension_settings.regex` 出现 3 条「三联·」脚本，`extension_settings.sanlian.version` 为 1
+
+## 发布到 GitHub
+
+```bash
+cd extension && gh repo create sillytavern-sanlian-theme --public --source=. --push
+```
+
+然后把 `manifest.json` 的 `homePage` 改成真实地址再提交一次。用户在 ST「安装扩展」里粘贴仓库 URL 即可。
+
+## 已知限制
+
+- **`applyTheme()` / `saveTheme()` 在 `scripts/power-user.js` 中均未 `export`**，本扩展改用 `context.executeSlashCommandsWithOptions('/theme <name>')` 触发应用（该斜杠命令内部逻辑与 UI 下拉框 `change` 事件一致，见 `scripts/power-user.js:3508`），已在本地实例验证可行。
 - 未验证 `getContext()` 返回对象上是否始终带有 `themes` 数组快照（用于跳过重复保存的判断）；如果该字段不存在或结构不同，代码会退化为"每次都保存"，不影响正确性但会略增一次请求。
 - 未做「用户已手动改过同名主题、不希望被覆盖」的保护，只靠 `__sanlian_version` 号做简单判断。
 - 未测试卸载/重装场景下 `extension_settings.sanlian` 残留数据的清理（本样板没有实现 `cleanup`/`onDisable` 钩子）。
 - `homePage` 字段仍是占位 URL `https://github.com/<user>/sillytavern-sanlian-theme`，发布前需替换成真实仓库地址，否则「安装扩展」时用户粘贴的 URL 与 manifest 里的地址不一致不影响功能，但更新检测通常依赖 git remote 而非该字段本身。
-- 正则的三条规则本身是占位符，尚未验证是否会与 ST 内置的 Markdown 渲染管线在特殊字符（如代码块内的 `--`）上产生误伤。
+- 破折号规则不区分代码块，代码块里恰好两个连字符也会被替换为破折号（仅显示层）。
 
 ## 关键 API 查证结果（文件:行号，均相对 `SillyTavern/public/`）
 

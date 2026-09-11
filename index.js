@@ -41,7 +41,7 @@ const regex_placement = {
 
 const REGEX_SCRIPT_PREFIX = '三联·';
 
-// 占位正则，作者会替换具体规则内容
+// 三条仅显示层正则（markdownOnly），只作用于 AI 输出
 const REGEX_SCRIPTS = [
     {
         scriptName: `${REGEX_SCRIPT_PREFIX}引号`,
