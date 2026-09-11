@@ -1,0 +1,12 @@
+{
+    "display_name": "三联生活周刊",
+    "loading_order": 100,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "",
+    "author": "kcgoofee@outlook.com",
+    "version": "0.1.0",
+    "homePage": "https://github.com/<user>/sillytavern-sanlian-theme",
+    "auto_update": true
+}
