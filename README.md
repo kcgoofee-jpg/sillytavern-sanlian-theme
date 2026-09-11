@@ -5,7 +5,7 @@
 ## 安装
 
 1. ST 界面 → 扩展（左侧插头图标）→「安装扩展」。
-2. 粘贴本仓库的 Git URL（例如 `https://github.com/<user>/sillytavern-sanlian-theme`），点击安装。
+2. 粘贴本仓库的 Git URL（例如 `https://github.com/kcgoofee-jpg/sillytavern-sanlian-theme`），点击安装。
 3. 刷新页面。扩展会在启动时自动：
    - 读取同目录 `theme.json`，通过 `POST /api/themes/save` 写入主题列表；
    - 用 `/theme 三联生活周刊` 斜杠命令应用并在下拉框中选中它；
@@ -57,7 +57,7 @@ cd extension && gh repo create sillytavern-sanlian-theme --public --source=. --p
 - 未验证 `getContext()` 返回对象上是否始终带有 `themes` 数组快照（用于跳过重复保存的判断）；如果该字段不存在或结构不同，代码会退化为"每次都保存"，不影响正确性但会略增一次请求。
 - 未做「用户已手动改过同名主题、不希望被覆盖」的保护，只靠 `__sanlian_version` 号做简单判断。
 - 未测试卸载/重装场景下 `extension_settings.sanlian` 残留数据的清理（本样板没有实现 `cleanup`/`onDisable` 钩子）。
-- `homePage` 字段仍是占位 URL `https://github.com/<user>/sillytavern-sanlian-theme`，发布前需替换成真实仓库地址，否则「安装扩展」时用户粘贴的 URL 与 manifest 里的地址不一致不影响功能，但更新检测通常依赖 git remote 而非该字段本身。
+- `homePage` 字段仍是占位 URL `https://github.com/kcgoofee-jpg/sillytavern-sanlian-theme`，发布前需替换成真实仓库地址，否则「安装扩展」时用户粘贴的 URL 与 manifest 里的地址不一致不影响功能，但更新检测通常依赖 git remote 而非该字段本身。
 - 破折号规则不区分代码块，代码块里恰好两个连字符也会被替换为破折号（仅显示层）。
 
 ## 关键 API 查证结果（文件:行号，均相对 `SillyTavern/public/`）
