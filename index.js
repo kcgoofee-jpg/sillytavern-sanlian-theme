@@ -40,6 +40,7 @@ const regex_placement = {
 };
 
 const REGEX_SCRIPT_PREFIX = '三联·';
+const REGEX_VERSION = 2; // 正则规则有改动时 +1，启动时会删掉旧的「三联·」脚本重新注入
 
 // 三条仅显示层正则（markdownOnly），只作用于 AI 输出
 const REGEX_SCRIPTS = [
@@ -55,7 +56,7 @@ const REGEX_SCRIPTS = [
     },
     {
         scriptName: `${REGEX_SCRIPT_PREFIX}段首缩进`,
-        findRegex: '/^(?=[\\u4e00-\\u9fff「『])/gm', // 以汉字或引号开头的段落加两个全角空格（跳过标题、列表、表格）
+        findRegex: '/(?<=\\n)(?=[\\u4e00-\\u9fff「『])/g', // 换行后以汉字或引号开头的段落加两个全角空格；首段紧跟角色名前缀，不缩进
         replaceString: '\u3000\u3000',
     },
 ];
@@ -150,6 +151,14 @@ async function ensureThemeInstalled(context) {
 function ensureRegexScriptsInjected() {
     if (!Array.isArray(extension_settings.regex)) {
         extension_settings.regex = [];
+    }
+
+    extension_settings[EXTENSION_KEY] = extension_settings[EXTENSION_KEY] || {};
+    const installedRegexVersion = extension_settings[EXTENSION_KEY].regexVersion ?? 0;
+    if (installedRegexVersion < REGEX_VERSION) {
+        // 规则升级：清掉旧版「三联·」脚本，下面整套重注
+        extension_settings.regex = extension_settings.regex.filter(s => !String(s.scriptName || '').startsWith(REGEX_SCRIPT_PREFIX));
+        extension_settings[EXTENSION_KEY].regexVersion = REGEX_VERSION;
     }
 
     const existingNames = new Set(extension_settings.regex.map(s => s.scriptName));
